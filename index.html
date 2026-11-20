@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weekly Budget</title>
+<style>
+  :root {
+    --bg: #f6f5f1; --card: #ffffff; --ink: #1d1d1b; --muted: #6b6a65; --line: #e4e2db;
+    --accent: #2f6f4f; --accent-soft: #e3efe8; --bad: #b3261e; --bad-soft: #fbe9e7;
+    --input: #fbfaf7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151614; --card: #1f201d; --ink: #ecebe6; --muted: #9a9890; --line: #33342f;
+      --accent: #6cc196; --accent-soft: #1f3329; --bad: #f2827a; --bad-soft: #3a2220;
+      --input: #191a17;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 720px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; }
+  h2 { font-size: 1rem; margin: 0 0 12px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: .95rem; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 16px; }
+
+  .hero { text-align: center; padding: 26px 18px; background: var(--accent-soft); border-color: transparent; }
+  .hero.neg { background: var(--bad-soft); }
+  .hero .label { color: var(--muted); font-size: .9rem; }
+  .hero .big { font-size: 2.6rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; margin: 4px 0; }
+  .hero.neg .big { color: var(--bad); }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+  .stats div { font-size: .85rem; color: var(--muted); }
+  .stats b { display: block; color: var(--ink); font-size: 1rem; font-variant-numeric: tabular-nums; }
+  .warn { color: var(--bad); font-size: .9rem; margin-top: 10px; }
+
+  .bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--line); margin: 14px 0 6px; }
+  .bar span { display: block; height: 100%; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .8rem; color: var(--muted); }
+  .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; }
+
+  .row { display: grid; grid-template-columns: 1fr 120px 110px 36px; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .row.income { grid-template-columns: 1fr 120px 36px; }
+  .hint { color: var(--muted); font-size: .8rem; margin: -4px 0 10px; }
+  input, select {
+    width: 100%; font: inherit; color: var(--ink); background: var(--input);
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-width: 0;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  input[type=number] { text-align: right; font-variant-numeric: tabular-nums; }
+  button {
+    font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink); padding: 8px 12px;
+  }
+  button:hover { border-color: var(--muted); }
+  .x { padding: 6px 0; color: var(--muted); background: transparent; border-color: transparent; font-size: 1.1rem; }
+  .x:hover { color: var(--bad); border-color: transparent; }
+  .add { margin-top: 4px; }
+  .total { display: flex; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 10px; margin-top: 8px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .total small { font-weight: 400; color: var(--muted); }
+  .inline { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .inline label { color: var(--muted); font-size: .9rem; }
+  .inline input { width: 140px; }
+  .inline select { width: auto; }
+  footer { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+  footer p { width: 100%; text-align: center; color: var(--muted); font-size: .8rem; margin: 6px 0 0; }
+
+  @media (max-width: 520px) {
+    .row { grid-template-columns: 1fr 96px 36px; }
+    .row select { grid-column: 1 / 3; grid-row: 2; }
+    .row { padding-bottom: 8px; border-bottom: 1px dashed var(--line); }
+    .row.income { grid-template-columns: 1fr 110px 36px; border-bottom: 0; padding-bottom: 0; }
+    .hero .big { font-size: 2.1rem; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Weekly Budget</h1>
+  <p class="sub">Enter what comes in and your fixed costs. It tells you what's safe to spend each week. Everything stays in this browser.</p>
+
+  <section class="card hero" id="hero">
+    <div class="label">You can spend each week</div>
+    <div class="big" id="weekly">$0</div>
+    <div class="label" id="perDay"></div>
+    <div class="stats">
+      <div>Income / month<b id="sIncome">0</b></div>
+      <div>Fixed + saved<b id="sFixed">0</b></div>
+      <div>Left / month<b id="sLeft">0</b></div>
+    </div>
+    <div class="bar" id="bar"></div>
+    <div class="legend" id="legend"></div>
+    <div class="warn" id="warn" hidden></div>
+  </section>
+
+  <section class="card">
+    <h2>Monthly income</h2>
+    <p class="hint">Take-home pay, after tax. Add a line for each source.</p>
+    <div id="incomeList"></div>
+    <button class="add" id="addIncome">+ Add income</button>
+    <div class="total"><span>Total</span><span id="incomeTotal">0</span></div>
+  </section>
+
+  <section class="card">
+    <h2>Fixed expenses</h2>
+    <p class="hint">Rent, bills, subscriptions, loan payments. Yearly and weekly costs are converted to monthly for you.</p>
+    <div id="expenseList"></div>
+    <button class="add" id="addExpense">+ Add expense</button>
+    <div class="total"><span>Total <small>per month</small></span><span id="expenseTotal">0</span></div>
+  </section>
+
+  <section class="card">
+    <h2>Savings</h2>
+    <div class="inline">
+      <label for="savings">Put aside each month</label>
+      <input type="number" id="savings" min="0" step="any" inputmode="decimal" placeholder="0">
+    </div>
+    <p class="hint" style="margin:8px 0 0">Taken out before your weekly amount, so you're not saving whatever's left over.</p>
+  </section>
+
+  <footer>
+    <div class="inline">
+      <label for="currency">Currency</label>
+      <select id="currency"></select>
+    </div>
+    <button id="exportBtn">Download backup</button>
+    <button id="importBtn">Restore backup</button>
+    <button id="resetBtn">Clear all</button>
+    <input type="file" id="importFile" accept="application/json" hidden>
+    <p>Saved automatically in this browser only. Clearing site data erases it, so download a backup now and then.</p>
+  </footer>
+</main>
+
+<script>
+const KEY = 'weekly-budget-v1';
+const WEEKS_PER_MONTH = 52 / 12;              // 4.333…, not 4
+const TO_MONTHLY = { weekly: WEEKS_PER_MONTH, biweekly: WEEKS_PER_MONTH / 2, monthly: 1, quarterly: 1 / 3, yearly: 1 / 12 };
+const FREQ_LABELS = { weekly: 'Weekly', biweekly: 'Every 2 weeks', monthly: 'Monthly', quarterly: 'Every 3 months', yearly: 'Yearly' };
+const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR', 'PKR', 'AED', 'SAR', 'JPY'];
+const COLORS = ['#2f6f4f', '#c47b2b', '#3d6fb6', '#8a4f9e', '#b3485a', '#4f8f8a', '#8c7a3e', '#5b5f97'];
+
+const blank = () => ({
+  currency: 'USD',
+  income: [{ id: uid(), name: 'Salary', amount: '' }],
+  expenses: [
+    { id: uid(), name: 'Rent', amount: '', freq: 'monthly' },
+    { id: uid(), name: 'Phone', amount: '', freq: 'monthly' },
+  ],
+  savings: '',
+});
+
+function uid() { return Math.random().toString(36).slice(2, 10); }
+function num(v) { const n = parseFloat(v); return Number.isFinite(n) && n > 0 ? n : 0; }
+
+let state = load();
+
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) return sanitize(JSON.parse(raw));
+  } catch (e) {}
+  return blank();
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+function sanitize(d) {
+  const s = blank();
+  if (!d || typeof d !== 'object') return s;
+  if (CURRENCIES.includes(d.currency)) s.currency = d.currency;
+  if (Array.isArray(d.income)) s.income = d.income.map(i => ({ id: uid(), name: String(i.name ?? ''), amount: String(i.amount ?? '') }));
+  if (Array.isArray(d.expenses)) s.expenses = d.expenses.map(e => ({
+    id: uid(), name: String(e.name ?? ''), amount: String(e.amount ?? ''), freq: TO_MONTHLY[e.freq] ? e.freq : 'monthly',
+  }));
+  s.savings = String(d.savings ?? '');
+  return s;
+}
+
+function money(n, digits) {
+  const d = digits ?? (state.currency === 'JPY' ? 0 : 2);
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: state.currency, minimumFractionDigits: d, maximumFractionDigits: d }).format(n);
+  } catch (e) { return n.toFixed(d); }
+}
+
+function el(tag, props = {}, ...kids) {
+  const e = document.createElement(tag);
+  Object.assign(e, props);
+  kids.forEach(k => e.append(k));
+  return e;
+}
+
+function renderLists() {
+  const inc = document.getElementById('incomeList');
+  inc.replaceChildren(...state.income.map(item => {
+    const name = el('input', { value: item.name, placeholder: 'Source', ariaLabel: 'Income name' });
+    const amt = el('input', { type: 'number', min: 0, step: 'any', inputMode: 'decimal', value: item.amount, placeholder: '0', ariaLabel: 'Monthly amount' });
+    const del = el('button', { className: 'x', textContent: '×', title: 'Remove', ariaLabel: 'Remove income' });
+    name.oninput = () => { item.name = name.value; update(); };
+    amt.oninput = () => { item.amount = amt.value; update(); };
+    del.onclick = () => { state.income = state.income.filter(i => i !== item); renderLists(); update(); };
+    return el('div', { className: 'row income' }, name, amt, del);
+  }));
+
+  const exp = document.getElementById('expenseList');
+  exp.replaceChildren(...state.expenses.map(item => {
+    const name = el('input', { value: item.name, placeholder: 'Expense', ariaLabel: 'Expense name' });
+    const amt = el('input', { type: 'number', min: 0, step: 'any', inputMode: 'decimal', value: item.amount, placeholder: '0', ariaLabel: 'Amount' });
+    const freq = el('select', { ariaLabel: 'How often' }, ...Object.entries(FREQ_LABELS).map(([v, t]) => el('option', { value: v, textContent: t })));
+    freq.value = item.freq;
+    const del = el('button', { className: 'x', textContent: '×', title: 'Remove', ariaLabel: 'Remove expense' });
+    name.oninput = () => { item.name = name.value; update(); };
+    amt.oninput = () => { item.amount = amt.value; update(); };
+    freq.onchange = () => { item.freq = freq.value; update(); };
+    del.onclick = () => { state.expenses = state.expenses.filter(i => i !== item); renderLists(); update(); };
+    return el('div', { className: 'row' }, name, amt, freq, del);
+  }));
+
+  document.getElementById('savings').value = state.savings;
+  document.getElementById('currency').value = state.currency;
+}
+
+function update() {
+  const income = state.income.reduce((s, i) => s + num(i.amount), 0);
+  const parts = state.expenses
+    .map(e => ({ name: e.name.trim() || 'Unnamed', monthly: num(e.amount) * TO_MONTHLY[e.freq] }))
+    .filter(p => p.monthly > 0);
+  const fixed = parts.reduce((s, p) => s + p.monthly, 0);
+  const savings = num(state.savings);
+  const left = income - fixed - savings;
+  const weekly = left / WEEKS_PER_MONTH;
+
+  document.getElementById('weekly').textContent = money(weekly, 0);
+  document.getElementById('perDay').textContent = income > 0 ? `about ${money(weekly / 7)} a day` : 'Add your income to start';
+  document.getElementById('sIncome').textContent = money(income, 0);
+  document.getElementById('sFixed').textContent = money(fixed + savings, 0);
+  document.getElementById('sLeft').textContent = money(left, 0);
+  document.getElementById('incomeTotal').textContent = money(income);
+  document.getElementById('expenseTotal').textContent = money(fixed);
+  document.getElementById('hero').classList.toggle('neg', left < 0);
+
+  const warn = document.getElementById('warn');
+  if (left < 0) {
+    warn.hidden = false;
+    warn.textContent = `Your fixed costs${savings ? ' and savings' : ''} are ${money(-left)} a month more than your income.`;
+  } else if (income > 0 && fixed / income > 0.7) {
+    warn.hidden = false;
+    warn.textContent = `Fixed costs take ${Math.round(fixed / income * 100)}% of your income. That leaves little room for surprises.`;
+  } else warn.hidden = true;
+
+  // Where the money goes: biggest expenses, then savings, then spending money.
+  const sorted = [...parts].sort((a, b) => b.monthly - a.monthly);
+  const top = sorted.slice(0, 6);
+  const rest = sorted.slice(6).reduce((s, p) => s + p.monthly, 0);
+  if (rest > 0) top.push({ name: 'Other', monthly: rest });
+  const segs = top.map((p, i) => ({ ...p, color: COLORS[i % COLORS.length] }));
+  if (savings) segs.push({ name: 'Savings', monthly: savings, color: '#9aa39d' });
+  if (left > 0) segs.push({ name: 'Spending', monthly: left, color: 'var(--accent-soft)', outline: true });
+  const base = Math.max(income, fixed + savings) || 1;
+  document.getElementById('bar').replaceChildren(...segs.map(s => {
+    const span = el('span', { title: `${s.name}: ${money(s.monthly)} / month` });
+    span.style.width = (s.monthly / base * 100) + '%';
+    span.style.background = s.outline ? 'var(--card)' : s.color;
+    return span;
+  }));
+  document.getElementById('legend').replaceChildren(...segs.map(s => {
+    const i = el('i'); i.style.background = s.outline ? 'var(--card)' : s.color;
+    if (s.outline) i.style.border = '1px solid var(--muted)';
+    return el('span', {}, i, `${s.name} ${Math.round(s.monthly / base * 100)}%`);
+  }));
+  document.getElementById('bar').hidden = document.getElementById('legend').hidden = income === 0 && fixed === 0;
+
+  save();
+}
+
+// Controls
+const cur = document.getElementById('currency');
+cur.replaceChildren(...CURRENCIES.map(c => el('option', { value: c, textContent: c })));
+cur.onchange = () => { state.currency = cur.value; update(); };
+document.getElementById('savings').oninput = e => { state.savings = e.target.value; update(); };
+document.getElementById('addIncome').onclick = () => { state.income.push({ id: uid(), name: '', amount: '' }); renderLists(); update(); focusLast('incomeList'); };
+document.getElementById('addExpense').onclick = () => { state.expenses.push({ id: uid(), name: '', amount: '', freq: 'monthly' }); renderLists(); update(); focusLast('expenseList'); };
+function focusLast(id) { const rows = document.getElementById(id).children; rows[rows.length - 1]?.querySelector('input')?.focus(); }
+
+document.getElementById('exportBtn').onclick = () => {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const a = el('a', { href: URL.createObjectURL(blob), download: `budget-backup-${new Date().toISOString().slice(0, 10)}.json` });
+  a.click(); URL.revokeObjectURL(a.href);
+};
+const file = document.getElementById('importFile');
+document.getElementById('importBtn').onclick = () => file.click();
+file.onchange = async () => {
+  const f = file.files[0]; if (!f) return;
+  try {
+    state = sanitize(JSON.parse(await f.text()));
+    renderLists(); update();
+  } catch (e) { alert("That file isn't a valid backup."); }
+  file.value = '';
+};
+document.getElementById('resetBtn').onclick = () => {
+  if (confirm('Erase everything? Download a backup first if you want to keep it.')) { state = blank(); renderLists(); update(); }
+};
+
+renderLists();
+update();
+</script>
+</body>
+</html>
