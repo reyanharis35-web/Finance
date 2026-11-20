@@ -10,6 +10,12 @@ Savings come out first. Your **weekly spending limit** is what's left: **(income
 
 It also shows how much you'll save in a year, and when you'll reach a starter emergency fund and then 3 months of fixed costs.
 
+## Every day: log what you spend
+The top card shows what's **left to spend this week** and about how much per day for the days left. Type each purchase into it, even small ones. It turns red when you go over. Earlier weeks show whether you came in under or over. Pick the day your week starts (your payday works well).
+
+## Every payday: move your savings
+The Savings plan card tells you how much to move to your savings account this month. Press **I moved it** once you've done it. It keeps a running balance (plus anything that was already in the account) and counts down to your starter emergency fund and to 3 months of fixed costs. Better still, set up an automatic transfer at your bank on payday and just confirm it here.
+
 ## Use it
 Open `index.html` in any browser. No login, no server, no install.
 
