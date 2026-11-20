@@ -18,6 +18,7 @@
     }
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body {
     margin: 0; background: var(--bg); color: var(--ink);
     font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -66,6 +67,18 @@
   .inline label { color: var(--muted); font-size: .9rem; }
   .inline input { width: 140px; }
   .inline select { width: auto; }
+  .plans { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .plans button { text-align: left; padding: 10px; line-height: 1.25; }
+  .plans button b { display: block; }
+  .plans button small { color: var(--muted); font-size: .78rem; }
+  .plans button[aria-checked=true] { border: 2px solid var(--accent); padding: 9px; background: var(--accent-soft); }
+  .goals { margin-top: 14px; display: grid; gap: 10px; }
+  .goal { border-top: 1px solid var(--line); padding-top: 10px; display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+  .goal span { color: var(--muted); font-size: .9rem; }
+  .goal b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .hero .save { margin-top: 10px; font-size: .95rem; }
+  .hero .save b { color: var(--accent); }
+  @media (max-width: 520px) { .plans { grid-template-columns: 1fr 1fr; } }
   footer { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
   footer p { width: 100%; text-align: center; color: var(--muted); font-size: .8rem; margin: 6px 0 0; }
 
@@ -81,16 +94,17 @@
 <body>
 <main>
   <h1>Weekly Budget</h1>
-  <p class="sub">Enter what comes in and your fixed costs. It tells you what's safe to spend each week. Everything stays in this browser.</p>
+  <p class="sub">Enter what comes in and your fixed costs. Savings come out first, and you get a weekly limit for the rest. Everything stays in this browser.</p>
 
   <section class="card hero" id="hero">
-    <div class="label">You can spend each week</div>
+    <div class="label">Your weekly spending limit</div>
     <div class="big" id="weekly">$0</div>
     <div class="label" id="perDay"></div>
+    <div class="save" id="saveLine"></div>
     <div class="stats">
       <div>Income / month<b id="sIncome">0</b></div>
-      <div>Fixed + saved<b id="sFixed">0</b></div>
-      <div>Left / month<b id="sLeft">0</b></div>
+      <div>Fixed / month<b id="sFixed">0</b></div>
+      <div>Saved / month<b id="sSave">0</b></div>
     </div>
     <div class="bar" id="bar"></div>
     <div class="legend" id="legend"></div>
@@ -114,12 +128,14 @@
   </section>
 
   <section class="card">
-    <h2>Savings</h2>
-    <div class="inline">
-      <label for="savings">Put aside each month</label>
+    <h2>Savings plan</h2>
+    <p class="hint">Savings come out first. Your weekly limit is what's left. How much of the money left after fixed costs should you keep?</p>
+    <div class="plans" id="plans" role="radiogroup" aria-label="Savings plan"></div>
+    <div class="inline" id="customWrap" hidden style="margin-top:10px">
+      <label for="savings">Save each month</label>
       <input type="number" id="savings" min="0" step="any" inputmode="decimal" placeholder="0">
     </div>
-    <p class="hint" style="margin:8px 0 0">Taken out before your weekly amount, so you're not saving whatever's left over.</p>
+    <div class="goals" id="goals"></div>
   </section>
 
   <footer>
@@ -150,8 +166,18 @@ const blank = () => ({
     { id: uid(), name: 'Rent', amount: '', freq: 'monthly' },
     { id: uid(), name: 'Phone', amount: '', freq: 'monthly' },
   ],
+  plan: 'recommended',
   savings: '',
 });
+
+// Share of the money left after fixed costs that goes to savings.
+const PLANS = {
+  gentle:      { label: 'Gentle',      pct: 0.10, note: '10% of what\'s left' },
+  recommended: { label: 'Recommended', pct: 0.20, note: '20% of what\'s left' },
+  strong:      { label: 'Strong',      pct: 0.30, note: '30% of what\'s left' },
+  custom:      { label: 'Custom',      pct: null, note: 'Pick an amount' },
+};
+const STARTER_FUND = { USD: 1000, EUR: 1000, GBP: 1000, CAD: 1000, AUD: 1500, INR: 50000, PKR: 100000, AED: 4000, SAR: 4000, JPY: 150000 };
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
 function num(v) { const n = parseFloat(v); return Number.isFinite(n) && n > 0 ? n : 0; }
@@ -176,6 +202,8 @@ function sanitize(d) {
     id: uid(), name: String(e.name ?? ''), amount: String(e.amount ?? ''), freq: TO_MONTHLY[e.freq] ? e.freq : 'monthly',
   }));
   s.savings = String(d.savings ?? '');
+  if (PLANS[d.plan]) s.plan = d.plan;
+  else if (num(d.savings) > 0) s.plan = 'custom';   // older data with a typed-in amount
   return s;
 }
 
@@ -221,6 +249,25 @@ function renderLists() {
 
   document.getElementById('savings').value = state.savings;
   document.getElementById('currency').value = state.currency;
+  renderPlans();
+}
+
+function renderPlans() {
+  document.getElementById('plans').replaceChildren(...Object.entries(PLANS).map(([key, p]) => {
+    const b = el('button', { role: 'radio', ariaChecked: String(state.plan === key) },
+      el('b', { textContent: p.label }), el('small', { textContent: p.note }));
+    b.onclick = () => { state.plan = key; renderPlans(); update(); if (key === 'custom') document.getElementById('savings').focus(); };
+    return b;
+  }));
+  document.getElementById('customWrap').hidden = state.plan !== 'custom';
+}
+
+function monthsLabel(m) {
+  if (!Number.isFinite(m)) return 'never at this rate';
+  if (m <= 0) return 'already there';
+  const n = Math.ceil(m);
+  const d = new Date(); d.setMonth(d.getMonth() + n);
+  return `${n} month${n === 1 ? '' : 's'} (${d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })})`;
 }
 
 function update() {
@@ -229,15 +276,34 @@ function update() {
     .map(e => ({ name: e.name.trim() || 'Unnamed', monthly: num(e.amount) * TO_MONTHLY[e.freq] }))
     .filter(p => p.monthly > 0);
   const fixed = parts.reduce((s, p) => s + p.monthly, 0);
-  const savings = num(state.savings);
-  const left = income - fixed - savings;
+  const free = income - fixed;                       // money left after fixed costs
+  const pct = PLANS[state.plan].pct;
+  const savings = pct == null ? num(state.savings) : Math.max(0, free) * pct;
+  const left = free - savings;
   const weekly = left / WEEKS_PER_MONTH;
 
   document.getElementById('weekly').textContent = money(weekly, 0);
   document.getElementById('perDay').textContent = income > 0 ? `about ${money(weekly / 7)} a day` : 'Add your income to start';
   document.getElementById('sIncome').textContent = money(income, 0);
-  document.getElementById('sFixed').textContent = money(fixed + savings, 0);
-  document.getElementById('sLeft').textContent = money(left, 0);
+  document.getElementById('sFixed').textContent = money(fixed, 0);
+  document.getElementById('sSave').textContent = money(savings, 0);
+
+  const saveLine = document.getElementById('saveLine');
+  if (savings > 0 && left >= 0) {
+    saveLine.replaceChildren('Stay under it and you save ', el('b', { textContent: money(savings * 12, 0) }), ' this year.');
+  } else saveLine.textContent = '';
+
+  // Milestones: a small starter fund first, then 3 months of fixed costs.
+  const starter = STARTER_FUND[state.currency] ?? 1000;
+  const cushion = fixed * 3;
+  const goals = document.getElementById('goals');
+  if (income > 0) {
+    const rows = [
+      [`Starter emergency fund (${money(starter, 0)})`, monthsLabel(savings > 0 ? starter / savings : Infinity)],
+    ];
+    if (cushion > starter) rows.push([`3 months of fixed costs (${money(cushion, 0)})`, monthsLabel(savings > 0 ? cushion / savings : Infinity)]);
+    goals.replaceChildren(...rows.map(([t, v]) => el('div', { className: 'goal' }, el('span', { textContent: t }), el('b', { textContent: v }))));
+  } else goals.replaceChildren();
   document.getElementById('incomeTotal').textContent = money(income);
   document.getElementById('expenseTotal').textContent = money(fixed);
   document.getElementById('hero').classList.toggle('neg', left < 0);
